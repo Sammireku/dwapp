@@ -72,25 +72,28 @@ export const AudiobookPlayerView: React.FC<AudiobookPlayerViewProps> = ({
         }),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.success && data.base64Audio) {
+          setIsLoadingAudio(false);
+          setIsPlaying(true);
+          const source = await playPcmBase64(data.base64Audio);
+          audioSourceRef.current = source;
 
-      if (data.success && data.base64Audio) {
-        setIsLoadingAudio(false);
-        setIsPlaying(true);
-        const source = await playPcmBase64(data.base64Audio);
-        audioSourceRef.current = source;
-
-        source.onended = () => {
-          setIsPlaying(false);
-          // Auto-advance page if not last
-          if (currentPageIndex < story.pages.length - 1) {
-            setCurrentPageIndex(prev => prev + 1);
-          }
-        };
-      } else {
-        // SpeechSynthesis fallback
-        fallbackWebSpeech();
+          source.onended = () => {
+            setIsPlaying(false);
+            // Auto-advance page if not last
+            if (currentPageIndex < story.pages.length - 1) {
+              setCurrentPageIndex(prev => prev + 1);
+            }
+          };
+          return;
+        }
       }
+      
+      // Fall back to Web Speech Synthesis if API fails or returns non-JSON
+      fallbackWebSpeech();
     } catch (e) {
       console.warn('TTS API error, falling back to browser speech synthesis:', e);
       fallbackWebSpeech();

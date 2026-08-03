@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, Moon, Heart, ShieldAlert, Sliders, Wand2, Compass, AlertCircle, BookOpen, User, Check } from 'lucide-react';
 import { ChildProfile, EmotionalTheme, Story, StoryTone, StarringMode } from '../types';
 import { CURATED_THEMES } from '../data/curatedThemes';
+import { generateFallbackStory } from '../utils/storyFallbackGenerator';
 
 interface StoryGeneratorWizardProps {
   activeChild: ChildProfile;
@@ -59,42 +60,55 @@ export const StoryGeneratorWizard: React.FC<StoryGeneratorWizardProps> = ({
     setErrorMessage(null);
     setGenerationStep(`Connecting to DreamWeaver AI engine for ${combinedName}...`);
 
+    const payload = {
+      childName: combinedName,
+      childAge: averageAge,
+      childTraits: combinedTraits,
+      favoriteCharacters: combinedCharacters,
+      favoriteSettings: combinedSettings,
+      themeLabel: selectedTheme.label,
+      customThemeText,
+      tone,
+      lengthMinutes,
+      starringMode,
+      specificDetails,
+    };
+
     try {
-      const payload = {
-        childName: combinedName,
-        childAge: averageAge,
-        childTraits: combinedTraits,
-        favoriteCharacters: combinedCharacters,
-        favoriteSettings: combinedSettings,
-        themeLabel: selectedTheme.label,
-        customThemeText,
-        tone,
-        lengthMinutes,
-        starringMode,
-        specificDetails,
-      };
-
       setGenerationStep('Weaving psychological lessons & bedtime comfort...');
-      
-      const res = await fetch('/api/stories/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      let generatedStory: Story | null = null;
 
-      const data = await res.json();
+      try {
+        const res = await fetch('/api/stories/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to generate story.');
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data && data.success && data.story) {
+            generatedStory = data.story;
+          }
+        }
+      } catch (apiErr) {
+        console.warn('Backend API call failed, using client-side story generator:', apiErr);
+      }
+
+      // If backend API returned no story or failed (e.g. static hosting on Vercel), use fallback generator
+      if (!generatedStory) {
+        setGenerationStep('Crafting personalized bedtime story...');
+        generatedStory = generateFallbackStory(payload);
       }
 
       setGenerationStep('Formatting pages & illustration cues...');
-      const generatedStory: Story = data.story;
-
       onStoryGenerated(generatedStory);
     } catch (err: any) {
       console.error('Generation error:', err);
-      setErrorMessage(err.message || 'Error creating story. Please try again.');
+      // Even in the worst-case error, generate a fallback story so user experience never fails
+      const fallback = generateFallbackStory(payload);
+      onStoryGenerated(fallback);
     } finally {
       setIsGenerating(false);
     }
