@@ -17,7 +17,7 @@ import { ChildProfile, Story, VoiceProfile, BookOrder, UserAccount } from './typ
 import { INITIAL_CHILD_PROFILES, INITIAL_STORIES } from './data/sampleStories';
 
 export default function App() {
-  const [isLandingPage, setIsLandingPage] = useState(false);
+  const [isLandingPage, setIsLandingPage] = useState(true);
   const [userAccount, setUserAccount] = useState<UserAccount | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signup');
