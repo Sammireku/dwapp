@@ -132,6 +132,10 @@ export async function playPcmBase64(base64Audio: string): Promise<AudioBufferSou
   const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
   const audioCtx = new AudioCtx({ sampleRate: 24000 });
 
+  if (audioCtx.state === 'suspended') {
+    await audioCtx.resume();
+  }
+
   const binaryString = atob(base64Audio);
   const len = binaryString.length;
   const bytes = new Uint8Array(len);

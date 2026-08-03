@@ -52,6 +52,11 @@ export const AudiobookPlayerView: React.FC<AudiobookPlayerViewProps> = ({
     stopAudio();
     setIsLoadingAudio(true);
 
+    // Warm up speech synthesis immediately on user click
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.resume();
+    }
+
     try {
       // Determine voice prompt prefix
       let voiceName = 'Kore';
@@ -97,25 +102,43 @@ export const AudiobookPlayerView: React.FC<AudiobookPlayerViewProps> = ({
     } catch (e) {
       console.warn('TTS API error, falling back to browser speech synthesis:', e);
       fallbackWebSpeech();
-    } finally {
-      setIsLoadingAudio(false);
     }
   };
 
   const fallbackWebSpeech = () => {
-    if (!('speechSynthesis' in window)) return;
+    if (!('speechSynthesis' in window)) {
+      setIsLoadingAudio(false);
+      setIsPlaying(false);
+      return;
+    }
     window.speechSynthesis.cancel();
+    window.speechSynthesis.resume();
 
     const utterance = new SpeechSynthesisUtterance(currentPage.text);
     utterance.rate = 0.85 * speed;
     utterance.pitch = selectedNarrator === 'barnaby' ? 0.8 : 1.1;
 
-    utterance.onstart = () => setIsPlaying(true);
+    const voices = window.speechSynthesis.getVoices();
+    const englishVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Karen') || v.name.includes('Serena')));
+    if (englishVoice) {
+      utterance.voice = englishVoice;
+    }
+
+    utterance.onstart = () => {
+      setIsLoadingAudio(false);
+      setIsPlaying(true);
+    };
     utterance.onend = () => {
       setIsPlaying(false);
+      setIsLoadingAudio(false);
       if (currentPageIndex < story.pages.length - 1) {
         setCurrentPageIndex(prev => prev + 1);
       }
+    };
+    utterance.onerror = (e) => {
+      console.warn('SpeechSynthesis error:', e);
+      setIsPlaying(false);
+      setIsLoadingAudio(false);
     };
 
     window.speechSynthesis.speak(utterance);

@@ -1,0 +1,27 @@
+{
+  "entities": {
+    "users": {
+      "title": "User Profile",
+      "description": "Family user profiles",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "parentName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["email"]
+    },
+    "stories": {
+      "title": "Generated Stories",
+      "description": "Stories saved by families",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "childName": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["title", "childName"]
+    }
+  }
+}
