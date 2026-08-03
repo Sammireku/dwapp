@@ -1,0 +1,6 @@
+{
+  "name": "DreamWeaver",
+  "description": "Personalized bedtime story generator and voice-cloned narration for children addressing real emotional themes and lessons.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
