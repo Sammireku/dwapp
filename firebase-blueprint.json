@@ -2,26 +2,62 @@
   "entities": {
     "users": {
       "title": "User Profile",
-      "description": "Family user profiles",
+      "description": "Family user profile and child account details",
       "type": "object",
       "properties": {
         "email": { "type": "string" },
-        "parentName": { "type": "string" },
+        "parentAName": { "type": "string" },
+        "parentBName": { "type": "string" },
+        "countryCode": { "type": "string" },
+        "phoneNumber": { "type": "string" },
         "createdAt": { "type": "string" }
       },
       "required": ["email"]
     },
     "stories": {
-      "title": "Generated Stories",
-      "description": "Stories saved by families",
+      "title": "Bedtime Stories",
+      "description": "Customized AI bedtime stories saved for children",
       "type": "object",
       "properties": {
         "title": { "type": "string" },
+        "subtitle": { "type": "string" },
         "childName": { "type": "string" },
+        "themeCategory": { "type": "string" },
+        "themeLabel": { "type": "string" },
         "userId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "safetyApproved": { "type": "boolean" },
+        "isFavorite": { "type": "boolean" }
+      },
+      "required": ["title", "childName", "userId"]
+    },
+    "voiceProfiles": {
+      "title": "Parent Voice Profile",
+      "description": "Encrypted voice sample and metadata for cloned narration",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "parentName": { "type": "string" },
+        "status": { "type": "string" },
+        "sampleAudioUrl": { "type": "string" },
+        "consentAccepted": { "type": "boolean" },
         "createdAt": { "type": "string" }
       },
-      "required": ["title", "childName"]
+      "required": ["userId", "parentName"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "Main user document"
+    },
+    "/users/{userId}/stories/{storyId}": {
+      "schema": "stories",
+      "description": "User specific bedtime stories"
+    },
+    "/users/{userId}/voiceProfiles/{voiceId}": {
+      "schema": "voiceProfiles",
+      "description": "User specific voice clone profiles"
     }
   }
 }

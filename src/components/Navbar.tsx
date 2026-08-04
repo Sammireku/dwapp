@@ -1,10 +1,10 @@
 import React from 'react';
-import { Sparkles, Moon, BookOpen, Mic, LayoutDashboard, ShoppingBag, ShieldCheck, Plus, User, LogOut } from 'lucide-react';
+import { Sparkles, Moon, BookOpen, Mic, LayoutDashboard, ShoppingBag, ShieldCheck, Plus, User, LogOut, CheckSquare, TrendingUp, Bot, FileText, DollarSign } from 'lucide-react';
 import { ChildProfile, UserAccount } from '../types';
 
 interface NavbarProps {
-  activeTab: 'create' | 'library' | 'read' | 'audiobook' | 'voice_clone' | 'dashboard' | 'marketplace' | 'privacy';
-  setActiveTab: (tab: 'create' | 'library' | 'read' | 'audiobook' | 'voice_clone' | 'dashboard' | 'marketplace' | 'privacy') => void;
+  activeTab: string;
+  setActiveTab: (tab: any) => void;
   childProfiles: ChildProfile[];
   activeChild: ChildProfile;
   setActiveChild: (child: ChildProfile) => void;
@@ -13,6 +13,7 @@ interface NavbarProps {
   userAccount: UserAccount | null;
   onOpenAuth: () => void;
   onGoToLandingPage: () => void;
+  onSignOut?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -26,6 +27,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   userAccount,
   onOpenAuth,
   onGoToLandingPage,
+  onSignOut,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#070514]/80 backdrop-blur-xl border-b border-white/10 text-indigo-50 px-4 py-3">
@@ -78,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <nav className="flex items-center overflow-x-auto no-scrollbar gap-1.5 text-xs font-medium py-1">
           <button
             onClick={() => setActiveTab('create')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full whitespace-nowrap transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${
               activeTab === 'create'
                 ? 'bg-amber-400/20 text-yellow-200 border border-amber-400/40 font-semibold shadow-inner shadow-amber-500/10'
                 : 'text-indigo-200/70 hover:text-white hover:bg-white/5 border border-transparent'
@@ -89,8 +91,56 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('routine')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${
+              activeTab === 'routine'
+                ? 'bg-amber-500/25 text-amber-200 border border-amber-400/40 font-semibold shadow-inner shadow-amber-500/10'
+                : 'text-indigo-200/70 hover:text-white hover:bg-white/5 border border-transparent'
+            }`}
+          >
+            <CheckSquare className="w-3.5 h-3.5 text-amber-300" />
+            <span>10-Step Routine</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('tracker')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${
+              activeTab === 'tracker'
+                ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 font-semibold shadow-inner shadow-emerald-500/10'
+                : 'text-indigo-200/70 hover:text-white hover:bg-white/5 border border-transparent'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-300" />
+            <span>Sleep Tracker & Rewards</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('coach')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${
+              activeTab === 'coach'
+                ? 'bg-purple-500/25 text-purple-200 border border-purple-400/40 font-semibold shadow-inner shadow-purple-500/10'
+                : 'text-indigo-200/70 hover:text-white hover:bg-white/5 border border-transparent'
+            }`}
+          >
+            <Bot className="w-3.5 h-3.5 text-cyan-300" />
+            <span>AI Sleep Coach</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('blog')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${
+              activeTab === 'blog'
+                ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-semibold'
+                : 'text-indigo-200/70 hover:text-white hover:bg-white/5 border border-transparent'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5 text-indigo-300" />
+            <span>Sleep Science Blog</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('library')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full whitespace-nowrap transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${
               activeTab === 'library' || activeTab === 'read' || activeTab === 'audiobook'
                 ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-semibold shadow-inner shadow-indigo-500/10'
                 : 'text-indigo-200/70 hover:text-white hover:bg-white/5 border border-transparent'
@@ -102,7 +152,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <button
             onClick={() => setActiveTab('voice_clone')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full whitespace-nowrap transition-all relative ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap transition-all relative ${
               activeTab === 'voice_clone'
                 ? 'bg-purple-500/25 text-purple-200 border border-purple-400/40 font-semibold shadow-inner shadow-purple-500/10'
                 : 'text-indigo-200/70 hover:text-white hover:bg-white/5 border border-transparent'
@@ -116,8 +166,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('royalties')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${
+              activeTab === 'royalties'
+                ? 'bg-amber-500/25 text-amber-200 border border-amber-400/40 font-semibold'
+                : 'text-indigo-200/70 hover:text-white hover:bg-white/5 border border-transparent'
+            }`}
+          >
+            <DollarSign className="w-3.5 h-3.5 text-amber-300" />
+            <span>Creator Store</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full whitespace-nowrap transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${
               activeTab === 'dashboard'
                 ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 font-semibold shadow-inner shadow-cyan-500/10'
                 : 'text-indigo-200/70 hover:text-white hover:bg-white/5 border border-transparent'
@@ -192,19 +254,30 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {/* Account Profile Pill */}
-          <button
-            onClick={onOpenAuth}
-            className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400/15 to-purple-500/15 hover:bg-white/10 text-amber-300 text-xs px-3.5 py-2 rounded-2xl border border-amber-400/30 font-medium transition-all"
-          >
-            <User className="w-3.5 h-3.5 text-amber-300" />
-            <span>
-              {userAccount
-                ? userAccount.parentBName
-                  ? `${userAccount.parentAName} & ${userAccount.parentBName}`
-                  : userAccount.parentAName
-                : 'Sign Up / In'}
-            </span>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onOpenAuth}
+              className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400/15 to-purple-500/15 hover:bg-white/10 text-amber-300 text-xs px-3.5 py-2 rounded-2xl border border-amber-400/30 font-medium transition-all"
+            >
+              <User className="w-3.5 h-3.5 text-amber-300" />
+              <span>
+                {userAccount
+                  ? userAccount.parentBName
+                    ? `${userAccount.parentAName} & ${userAccount.parentBName}`
+                    : userAccount.parentAName
+                  : 'Sign Up / In'}
+              </span>
+            </button>
+            {userAccount && onSignOut && (
+              <button
+                onClick={onSignOut}
+                title="Sign Out"
+                className="p-2 rounded-2xl bg-white/5 hover:bg-rose-500/20 text-indigo-300 hover:text-rose-300 border border-white/10 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </header>

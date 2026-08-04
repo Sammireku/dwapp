@@ -57,6 +57,32 @@ export const AudiobookPlayerView: React.FC<AudiobookPlayerViewProps> = ({
       window.speechSynthesis.resume();
     }
 
+    // If cloned narrator selected and user has a recorded audio sample, play parent's real voice recording!
+    if (selectedNarrator === 'cloned' && voiceProfile.sampleAudioUrl) {
+      try {
+        const audio = new Audio(voiceProfile.sampleAudioUrl);
+        setIsLoadingAudio(false);
+        setIsPlaying(true);
+
+        audio.onended = () => {
+          setIsPlaying(false);
+          // After parent intro sample, continue with Gemini story narration or next page
+          if (currentPageIndex < story.pages.length - 1) {
+            setCurrentPageIndex(prev => prev + 1);
+          }
+        };
+
+        audio.onerror = () => {
+          fallbackWebSpeech();
+        };
+
+        await audio.play();
+        return;
+      } catch (err) {
+        console.warn('Could not play recorded parent audio sample, attempting TTS:', err);
+      }
+    }
+
     try {
       // Determine voice prompt prefix
       let voiceName = 'Kore';

@@ -71,9 +71,109 @@ export interface StoryGenerationRequest {
   themeLabel: string;
   customThemeText?: string;
   tone: StoryTone;
-  lengthMinutes: 3 | 5 | 10;
+  lengthMinutes: number;
   starringMode: StarringMode;
   specificDetails?: string;
+}
+
+export interface RoutineStep {
+  id: string;
+  icon: string;
+  title: string;
+  subtitle: string;
+  isCompleted: boolean;
+  timeSlot?: string;
+}
+
+export interface RoutineChecklist {
+  id: string;
+  childId: string;
+  date: string;
+  steps: RoutineStep[];
+  completedCount: number;
+  isAllDone: boolean;
+}
+
+export interface SleepLog {
+  id: string;
+  childId: string;
+  date: string; // YYYY-MM-DD
+  bedtime: string; // HH:mm
+  wakeTime: string; // HH:mm
+  durationHours: number;
+  qualityRating: 1 | 2 | 3 | 4 | 5;
+  nightAwakenings: number;
+  wokeUpMood: 'happy' | 'refreshed' | 'fussy' | 'tired';
+  bedtimeRoutineCompleted: boolean;
+  notes?: string;
+}
+
+export interface SleepAgreement {
+  id: string;
+  childId: string;
+  childName: string;
+  targetBedtime: string; // e.g. "8:15 PM"
+  targetDurationDays: number; // e.g. 5 days consecutive
+  currentStreakDays: number;
+  agreedReward: string; // e.g. "Weekend trip to the zoo!"
+  agreedConsequence: string; // e.g. "No iPad after dinner tomorrow"
+  status: 'active' | 'met' | 'renegotiate' | 'failed';
+  startDate: string;
+  lastUpdated: string;
+}
+
+export interface ResourceArticle {
+  id: string;
+  title: string;
+  category: 'sleep_science' | 'emotional_growth' | 'bedtime_anxiety' | 'toddler_routines';
+  author: string;
+  authorRole: string;
+  readTimeMinutes: number;
+  publishedDate: string;
+  summary: string;
+  content: string[];
+  keyTakeaways: string[];
+  imageUrl: string;
+  tags: string[];
+}
+
+export interface CoachMessage {
+  id: string;
+  sender: 'user' | 'coach';
+  text: string;
+  timestamp: string;
+  suggestedAction?: {
+    type: 'create_story' | 'start_meditation' | 'start_routine';
+    label: string;
+  };
+}
+
+export interface PublishedStory {
+  id: string;
+  storyId: string;
+  title: string;
+  authorParentName: string;
+  childAgeGroup: string;
+  category: string;
+  downloadsCount: number;
+  likesCount: number;
+  royaltyEarnedDollars: number;
+  coverImageUrl: string;
+  summary: string;
+  price: number; // 0 for free community book, $3.99 for premium
+  publishedAt: string;
+}
+
+export interface OfflineTimerSetting {
+  id: string;
+  childId: string;
+  caregiverName: string;
+  scheduledBedtime: string; // HH:mm
+  storyIdToAutoplay?: string;
+  timerDurationMinutes: number;
+  soundEffect: 'lullaby' | 'rain' | 'singing_bowl' | 'silence';
+  vibrationAlert: boolean;
+  isActive: boolean;
 }
 
 export interface StoryPage {

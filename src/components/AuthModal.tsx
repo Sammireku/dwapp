@@ -2,6 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Sparkles, User, Camera, Upload, Plus, Trash2, Check, Lock, Mail, Phone, Globe, Heart, ArrowRight } from 'lucide-react';
 import { UserAccount, ChildFormEntry } from '../types';
 import { generateChildlikeAIAvatar } from '../utils/aiAvatar';
+import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -194,10 +197,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     updateKid(kidId, { aiAnimationAvatarUrl: aiAvatar });
   };
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!parentAName.trim() || !email.trim()) {
-      alert('Please fill in Parent A Name and Email.');
+    setAuthError(null);
+    if (!parentAName.trim() || !email.trim() || !password) {
+      alert('Please fill in Parent A Name, Email, and Password.');
       return;
     }
 
@@ -207,25 +214,113 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    const newUser: UserAccount = {
-      id: `user_${Date.now()}`,
-      parentAName: parentAName.trim(),
-      parentBName: parentBName.trim() || undefined,
-      email: email.trim(),
-      countryCode,
-      phoneNumber: phoneNumber.trim(),
-      numberOfKids: validKids.length,
-      kids: validKids,
-      createdAt: new Date().toISOString(),
-    };
+    setIsSubmitting(true);
+    try {
+      // 1. Create Firebase Auth user
+      const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const uid = userCred.user.uid;
 
-    onLoginSuccess(newUser);
-    onClose();
+      const newUser: UserAccount = {
+        id: uid,
+        parentAName: parentAName.trim(),
+        parentBName: parentBName.trim() || undefined,
+        email: email.trim(),
+        countryCode,
+        phoneNumber: phoneNumber.trim(),
+        numberOfKids: validKids.length,
+        kids: validKids,
+        createdAt: new Date().toISOString(),
+      };
+
+      // 2. Persist profile to Firestore
+      try {
+        await setDoc(doc(db, 'users', uid), newUser);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `users/${uid}`);
+      }
+
+      onLoginSuccess(newUser);
+      onClose();
+    } catch (err: any) {
+      console.error('Sign up error:', err);
+      setAuthError(err.message || 'Failed to create account.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    handleDemoSignIn();
+    setAuthError(null);
+    if (!signInEmail.trim() || !signInPassword) {
+      alert('Please enter your email and password.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const userCred = await signInWithEmailAndPassword(auth, signInEmail.trim(), signInPassword);
+      const uid = userCred.user.uid;
+
+      // Retrieve user profile from Firestore
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        onLoginSuccess(userDoc.data() as UserAccount);
+      } else {
+        const fallbackUser: UserAccount = {
+          id: uid,
+          parentAName: signInEmail.split('@')[0] || 'Parent',
+          email: signInEmail.trim(),
+          countryCode: '+1',
+          phoneNumber: '',
+          numberOfKids: 1,
+          kids: [{ id: `kid_${Date.now()}`, name: 'Explorer', age: 5, isStarringInStories: true }],
+          createdAt: new Date().toISOString(),
+        };
+        await setDoc(doc(db, 'users', uid), fallbackUser);
+        onLoginSuccess(fallbackUser);
+      }
+      onClose();
+    } catch (err: any) {
+      console.error('Sign in error:', err);
+      setAuthError(err.message || 'Invalid email or password.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setAuthError(null);
+    setIsSubmitting(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const userCred = await signInWithPopup(auth, provider);
+      const uid = userCred.user.uid;
+
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        onLoginSuccess(userDoc.data() as UserAccount);
+      } else {
+        const newUser: UserAccount = {
+          id: uid,
+          parentAName: userCred.user.displayName || 'Parent',
+          email: userCred.user.email || '',
+          countryCode: '+1',
+          phoneNumber: '',
+          numberOfKids: 1,
+          kids: [{ id: `kid_${Date.now()}`, name: 'Little Hero', age: 5, isStarringInStories: true }],
+          createdAt: new Date().toISOString(),
+        };
+        await setDoc(doc(db, 'users', uid), newUser);
+        onLoginSuccess(newUser);
+      }
+      onClose();
+    } catch (err: any) {
+      console.error('Google sign in error:', err);
+      setAuthError(err.message || 'Google Sign-In failed.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDemoSignIn = () => {
@@ -309,9 +404,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Form Body */}
         <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
+          {authError && (
+            <div className="p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-semibold text-center">
+              {authError}
+            </div>
+          )}
+
           {mode === 'signin' ? (
-            <form onSubmit={handleSignIn} className="space-y-4 max-w-md mx-auto py-4">
-              <div className="text-center space-y-1 mb-6">
+            <form onSubmit={handleSignIn} className="space-y-4 max-w-md mx-auto py-2">
+              <div className="text-center space-y-1 mb-4">
                 <h4 className="font-serif text-xl font-bold text-indigo-100">Welcome Back to DreamWeaver</h4>
                 <p className="text-xs text-indigo-200/70">Sign in to access your parent voice profiles and saved bedtime stories.</p>
               </div>
@@ -347,10 +448,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="pt-2 space-y-3">
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold text-xs hover:from-amber-300 hover:to-amber-400 shadow-lg flex items-center justify-center gap-2"
+                  disabled={isSubmitting}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold text-xs hover:from-amber-300 hover:to-amber-400 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <span>Sign In to Family Hub</span>
+                  <span>{isSubmitting ? 'Signing in...' : 'Sign In with Firebase Auth'}</span>
                   <ArrowRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={isSubmitting}
+                  className="w-full py-2.5 rounded-xl bg-white text-slate-900 font-bold text-xs hover:bg-slate-100 transition-all flex items-center justify-center gap-2 shadow-md"
+                >
+                  <Globe className="w-4 h-4 text-blue-600" />
+                  <span>Continue with Google Account</span>
                 </button>
 
                 <div className="relative flex py-2 items-center">

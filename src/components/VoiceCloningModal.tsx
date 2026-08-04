@@ -29,7 +29,10 @@ export const VoiceCloningModal: React.FC<VoiceCloningModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPlayingSample, setIsPlayingSample] = useState(false);
 
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(voiceProfile.sampleAudioUrl || null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const timerIntervalRef = useRef<any>(null);
 
   if (!isOpen) return null;
@@ -39,8 +42,17 @@ export const VoiceCloningModal: React.FC<VoiceCloningModalProps> = ({
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      mediaRecorderRef.current.start();
+      audioChunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.start();
       setIsRecording(true);
       setRecordingSeconds(0);
 
@@ -60,34 +72,65 @@ export const VoiceCloningModal: React.FC<VoiceCloningModalProps> = ({
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Audio = reader.result as string;
+          setRecordedAudioUrl(base64Audio);
+          simulateSynthesis(base64Audio);
+        };
+        reader.readAsDataURL(audioBlob);
+      };
+
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
     }
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     setIsRecording(false);
     setStep(3);
-    simulateSynthesis();
   };
 
-  const simulateSynthesis = () => {
+  const simulateSynthesis = (audioUrl?: string) => {
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
       const updatedProfile: VoiceProfile = {
-        id: `voice_${Date.now()}`,
+        id: voiceProfile.id || `voice_${Date.now()}`,
         parentName,
         status: 'enrolled',
         consentAccepted: true,
         consentTimestamp: new Date().toISOString(),
         recordingDurationSec: recordingSeconds || 30,
         voiceEmbeddingId: `emb_${Date.now()}`,
+        sampleAudioUrl: audioUrl || recordedAudioUrl || undefined,
       };
       onSaveVoiceProfile(updatedProfile);
       setStep(4);
-    }, 2500);
+    }, 2000);
   };
 
   const playTestSample = () => {
+    const audioUrlToPlay = recordedAudioUrl || voiceProfile.sampleAudioUrl;
+    if (audioUrlToPlay) {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+      }
+      const audio = new Audio(audioUrlToPlay);
+      audioPlayerRef.current = audio;
+      setIsPlayingSample(true);
+      audio.onended = () => setIsPlayingSample(false);
+      audio.onerror = () => {
+        setIsPlayingSample(false);
+        fallbackWebSpeech();
+      };
+      audio.play().catch(() => fallbackWebSpeech());
+    } else {
+      fallbackWebSpeech();
+    }
+  };
+
+  const fallbackWebSpeech = () => {
     if (!('speechSynthesis' in window)) return;
     setIsPlayingSample(true);
     const utt = new SpeechSynthesisUtterance(`Goodnight ${activeChild.name}, I love you to the moon and back.`);

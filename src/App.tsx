@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShoppingBag, BookOpen, Sparkles, Star, CreditCard } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { StoryGeneratorWizard } from './components/StoryGeneratorWizard';
@@ -13,8 +13,17 @@ import { ChildProfileModal } from './components/ChildProfileModal';
 import { LandingPage } from './components/LandingPage';
 import { AuthModal } from './components/AuthModal';
 
+import { BedtimeChecklistReminders } from './components/BedtimeChecklistReminders';
+import { SleepTrackerRewards } from './components/SleepTrackerRewards';
+import { SleepCoachAI } from './components/SleepCoachAI';
+import { SleepResourceBlog } from './components/SleepResourceBlog';
+import { CreatorRoyaltiesModal } from './components/CreatorRoyaltiesModal';
+
 import { ChildProfile, Story, VoiceProfile, BookOrder, UserAccount } from './types';
 import { INITIAL_CHILD_PROFILES, INITIAL_STORIES } from './data/sampleStories';
+import { auth, db, handleFirestoreError, OperationType } from './lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc, getDocs, collection, deleteDoc } from 'firebase/firestore';
 
 export default function App() {
   const [isLandingPage, setIsLandingPage] = useState(true);
@@ -22,9 +31,7 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signup');
 
-  const [activeTab, setActiveTab] = useState<
-    'create' | 'library' | 'read' | 'audiobook' | 'voice_clone' | 'dashboard' | 'marketplace' | 'privacy'
-  >('create');
+  const [activeTab, setActiveTab] = useState<string>('create');
 
   // Child Profiles State
   const [childProfiles, setChildProfiles] = useState<ChildProfile[]>(INITIAL_CHILD_PROFILES);
@@ -48,12 +55,83 @@ export default function App() {
   const [isVoiceCloneOpen, setIsVoiceCloneOpen] = useState(false);
   const [isMarketplaceOpen, setIsMarketplaceOpen] = useState(false);
 
+  // Listen to Firebase Auth state change and restore session & Firestore data
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          // 1. Fetch user profile
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data() as UserAccount;
+            setUserAccount(userData);
+            setIsLandingPage(false);
+
+            if (userData.kids && userData.kids.length > 0) {
+              const loadedKids: ChildProfile[] = userData.kids.map((k, idx) => ({
+                id: k.id || `child_${idx}`,
+                name: k.name,
+                age: k.age || 5,
+                gender: k.gender || 'girl',
+                traits: ['Curious', 'Kind'],
+                favoriteCharacters: ['Pip the Starlight Fox'],
+                favoriteSettings: ['Pine Forest'],
+                readingLevel: k.age <= 5 ? 'early' : 'intermediate',
+                coveredThemes: [],
+                avatarSeed: k.name.toLowerCase(),
+                createdAt: new Date().toISOString(),
+                photoUrl: k.photoUrl,
+                aiAnimationAvatarUrl: k.aiAnimationAvatarUrl,
+                isStarringInStories: k.isStarringInStories,
+                parentAName: userData.parentAName,
+                parentBName: userData.parentBName,
+              }));
+              setChildProfiles(loadedKids);
+              setActiveChild(loadedKids[0]);
+            }
+          }
+
+          // 2. Fetch saved stories from Firestore subcollection /users/{uid}/stories
+          try {
+            const storiesSnap = await getDocs(collection(db, 'users', firebaseUser.uid, 'stories'));
+            if (!storiesSnap.empty) {
+              const fetchedStories: Story[] = [];
+              storiesSnap.forEach((docSnap) => {
+                fetchedStories.push(docSnap.data() as Story);
+              });
+              if (fetchedStories.length > 0) {
+                setStories(fetchedStories);
+                setSelectedStory(fetchedStories[0]);
+              }
+            }
+          } catch (e) {
+            console.warn('Firestore stories fetch note:', e);
+          }
+
+          // 3. Fetch Voice Profile from Firestore
+          try {
+            const voiceDoc = await getDoc(doc(db, 'users', firebaseUser.uid, 'voiceProfiles', 'primary'));
+            if (voiceDoc.exists()) {
+              setVoiceProfile(voiceDoc.data() as VoiceProfile);
+            }
+          } catch (e) {
+            console.warn('Firestore voice profile fetch note:', e);
+          }
+        } catch (err) {
+          console.error('Error loading Firestore data on auth change:', err);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Auth / Sign Up Login handler
   const handleLoginSuccess = (user: UserAccount) => {
     setUserAccount(user);
     setIsLandingPage(false);
 
-    // If user has kids in registration form, populate child profiles
+    // Populate child profiles
     if (user.kids && user.kids.length > 0) {
       const newProfiles: ChildProfile[] = user.kids.map((k, idx) => ({
         id: k.id || `child_auth_${idx}_${Date.now()}`,
@@ -79,56 +157,141 @@ export default function App() {
     }
   };
 
+  const handleSignOut = async () => {
+    await signOut(auth);
+    setUserAccount(null);
+    setIsLandingPage(true);
+  };
+
   // Handlers
-  const handleStoryGenerated = (newStory: Story) => {
-    setStories((prev) => [newStory, ...prev]);
-    setSelectedStory(newStory);
+  const handleStoryGenerated = async (newStory: Story) => {
+    const storyWithUid = {
+      ...newStory,
+      userId: userAccount?.id || auth.currentUser?.uid || 'demo_user',
+    };
+
+    setStories((prev) => [storyWithUid, ...prev]);
+    setSelectedStory(storyWithUid);
     
     // Add theme to child's covered themes
     const updatedChild: ChildProfile = {
       ...activeChild,
       coveredThemes: [
-        { themeId: newStory.themeCategory, themeLabel: newStory.themeLabel, date: new Date().toISOString().split('T')[0] },
+        { themeId: storyWithUid.themeCategory, themeLabel: storyWithUid.themeLabel, date: new Date().toISOString().split('T')[0] },
         ...activeChild.coveredThemes,
       ]
     };
     setActiveChild(updatedChild);
     setChildProfiles((prev) => prev.map((c) => (c.id === updatedChild.id ? updatedChild : c)));
 
+    // Save story to Firestore if user is authenticated
+    const uid = auth.currentUser?.uid || userAccount?.id;
+    if (uid) {
+      try {
+        await setDoc(doc(db, 'users', uid, 'stories', storyWithUid.id), storyWithUid);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `users/${uid}/stories/${storyWithUid.id}`);
+      }
+    }
+
     setActiveTab('read');
   };
 
-  const handleToggleFavorite = (storyId: string) => {
+  const handleToggleFavorite = async (storyId: string) => {
     setStories((prev) =>
-      prev.map((s) => (s.id === storyId ? { ...s, isFavorite: !s.isFavorite } : s))
+      prev.map((s) => {
+        if (s.id === storyId) {
+          const updated = { ...s, isFavorite: !s.isFavorite };
+          const uid = auth.currentUser?.uid || userAccount?.id;
+          if (uid) {
+            setDoc(doc(db, 'users', uid, 'stories', storyId), updated).catch(err => {
+              handleFirestoreError(err, OperationType.WRITE, `users/${uid}/stories/${storyId}`);
+            });
+          }
+          return updated;
+        }
+        return s;
+      })
     );
   };
 
-  const handleDeleteStory = (storyId: string) => {
+  const handleDeleteStory = async (storyId: string) => {
     setStories((prev) => prev.filter((s) => s.id !== storyId));
+    const uid = auth.currentUser?.uid || userAccount?.id;
+    if (uid) {
+      try {
+        await deleteDoc(doc(db, 'users', uid, 'stories', storyId));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `users/${uid}/stories/${storyId}`);
+      }
+    }
   };
 
-  const handleSaveChildProfile = (profile: ChildProfile) => {
+  const handleSaveChildProfile = async (profile: ChildProfile) => {
     setChildProfiles((prev) => {
       const exists = prev.some((c) => c.id === profile.id);
       if (exists) return prev.map((c) => (c.id === profile.id ? profile : c));
       return [...prev, profile];
     });
     setActiveChild(profile);
+
+    const uid = auth.currentUser?.uid || userAccount?.id;
+    if (uid && userAccount) {
+      const updatedAccount: UserAccount = {
+        ...userAccount,
+        kids: childProfiles.map(k => ({
+          id: k.id,
+          name: k.name,
+          age: k.age,
+          gender: k.gender,
+          photoUrl: k.photoUrl,
+          aiAnimationAvatarUrl: k.aiAnimationAvatarUrl,
+          isStarringInStories: k.isStarringInStories,
+        })),
+      };
+      try {
+        await setDoc(doc(db, 'users', uid), updatedAccount);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `users/${uid}`);
+      }
+    }
   };
 
-  const handleSaveVoiceProfile = (profile: VoiceProfile) => {
-    setVoiceProfile(profile);
+  const handleSaveVoiceProfile = async (profile: VoiceProfile) => {
+    const profileWithUid = {
+      ...profile,
+      userId: userAccount?.id || auth.currentUser?.uid || 'demo_user',
+    };
+    setVoiceProfile(profileWithUid);
+
+    const uid = auth.currentUser?.uid || userAccount?.id;
+    if (uid) {
+      try {
+        await setDoc(doc(db, 'users', uid, 'voiceProfiles', 'primary'), profileWithUid);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `users/${uid}/voiceProfiles/primary`);
+      }
+    }
   };
 
-  const handleDeleteVoiceProfile = () => {
-    setVoiceProfile({
+  const handleDeleteVoiceProfile = async () => {
+    const blankProfile: VoiceProfile = {
       id: `voice_${Date.now()}`,
       parentName: userAccount?.parentAName || 'Mom / Dad',
       status: 'unregistered',
       consentAccepted: false,
       recordingDurationSec: 0,
-    });
+    };
+    setVoiceProfile(blankProfile);
+
+    const uid = auth.currentUser?.uid || userAccount?.id;
+    if (uid) {
+      try {
+        await deleteDoc(doc(db, 'users', uid, 'voiceProfiles', 'primary'));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `users/${uid}/voiceProfiles/primary`);
+      }
+    }
   };
 
   const handlePurgeAllData = () => {
@@ -182,6 +345,7 @@ export default function App() {
           setIsAuthModalOpen(true);
         }}
         onGoToLandingPage={() => setIsLandingPage(true)}
+        onSignOut={handleSignOut}
       />
 
       {/* Main Content Area */}
@@ -265,6 +429,36 @@ export default function App() {
               </button>
             </div>
           </div>
+        )}
+
+        {activeTab === 'routine' && (
+          <BedtimeChecklistReminders
+            activeChild={activeChild}
+            onOpenStoryWizard={() => setActiveTab('create')}
+          />
+        )}
+
+        {activeTab === 'tracker' && (
+          <SleepTrackerRewards
+            activeChild={activeChild}
+          />
+        )}
+
+        {activeTab === 'coach' && (
+          <SleepCoachAI
+            activeChild={activeChild}
+            onOpenStoryWizardWithTheme={(theme, detail) => {
+              setActiveTab('create');
+            }}
+          />
+        )}
+
+        {activeTab === 'blog' && (
+          <SleepResourceBlog />
+        )}
+
+        {activeTab === 'royalties' && (
+          <CreatorRoyaltiesModal stories={stories} />
         )}
 
         {activeTab === 'dashboard' && (

@@ -139,6 +139,37 @@ Details: ${specificDetails || 'Focus on comfort, feeling safe, and bedtime peace
   }
 });
 
+// AI Sleep Coach Chat Endpoint
+app.post("/api/coach/chat", async (req, res) => {
+  try {
+    const { query, childName, childAge } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: "Query is required." });
+    }
+
+    const ai = getGenAI();
+    const systemInstruction = `You are Dr. Luna, an expert Pediatric Sleep Specialist, Child Psychologist, and Bedtime Coach.
+You assist parents with child sleep challenges for ${childName || 'their child'} (age ${childAge || 4}).
+Give warm, practical, evidence-based pediatric advice.
+Use clear bullet points and gentle bedtime tone. Keep answers concise (under 250 words) and actionable.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: query,
+      config: {
+        systemInstruction,
+        temperature: 0.7,
+      },
+    });
+
+    const reply = response.text || "I am here to support your family's bedtime routine with gentle sleep science.";
+    return res.json({ success: true, reply });
+  } catch (error: any) {
+    console.error("Error in AI Coach chat:", error);
+    return res.status(500).json({ error: "Failed to fetch sleep coach response", details: error.message || String(error) });
+  }
+});
+
 // Audio TTS Endpoint using Gemini TTS
 app.post("/api/stories/tts", async (req, res) => {
   try {
