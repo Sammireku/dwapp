@@ -7,9 +7,10 @@ interface FallbackPayload {
   favoriteCharacters: string[];
   favoriteSettings: string[];
   themeLabel: string;
+  themeLabels?: string[];
   customThemeText?: string;
   tone: StoryTone;
-  lengthMinutes: 3 | 5 | 10;
+  lengthMinutes: number;
   starringMode: StarringMode;
   specificDetails?: string;
 }
@@ -22,6 +23,7 @@ export function generateFallbackStory(payload: FallbackPayload): Story {
     favoriteCharacters,
     favoriteSettings,
     themeLabel,
+    themeLabels = [],
     customThemeText,
     tone,
     lengthMinutes,
@@ -29,14 +31,18 @@ export function generateFallbackStory(payload: FallbackPayload): Story {
     specificDetails,
   } = payload;
 
+  const displayTheme = (themeLabels && themeLabels.length > 0)
+    ? themeLabels.join(' & ')
+    : themeLabel;
+
   const setting = favoriteSettings[0] || 'Whispering Pine Forest';
   const character = favoriteCharacters[0] || 'Pip the Starlight Fox';
   const trait = childTraits[0] || 'gentle heart';
 
-  const pageCount = lengthMinutes === 3 ? 6 : lengthMinutes === 10 ? 12 : 8;
+  const pageCount = lengthMinutes <= 3 ? 6 : lengthMinutes >= 10 ? 12 : 8;
 
   const title = `The Night ${childName} Found Light in the ${setting}`;
-  const subtitle = `A bedtime journey through ${themeLabel.toLowerCase()}`;
+  const subtitle = `A bedtime journey through ${displayTheme.toLowerCase()}`;
 
   const pages: StoryPage[] = [];
 

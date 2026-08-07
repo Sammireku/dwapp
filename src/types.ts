@@ -45,11 +45,23 @@ export interface UserAccount {
   createdAt: string;
 }
 
-export type ThemeCategory = 'fears' | 'social' | 'transitions' | 'character' | 'calming';
+export type ThemeCategory = 
+  | 'featured'
+  | 'emotional_social'
+  | 'fears_worries'
+  | 'confidence_growth'
+  | 'change_transitions'
+  | 'everyday'
+  | 'fears'
+  | 'social'
+  | 'transitions'
+  | 'character'
+  | 'calming';
 
 export interface EmotionalTheme {
   id: string;
   category: ThemeCategory;
+  categoryGroupLabel?: string;
   label: string;
   description: string;
   iconName: string;
@@ -69,6 +81,7 @@ export interface StoryGenerationRequest {
   favoriteSettings: string[];
   themeId: string;
   themeLabel: string;
+  themeLabels?: string[];
   customThemeText?: string;
   tone: StoryTone;
   lengthMinutes: number;
@@ -202,6 +215,7 @@ export interface Story {
   safetyAdvice?: string;
   coverImageUrl?: string;
   createdAt: string;
+  updatedAt?: string;
   isFavorite: boolean;
   playCount: number;
   rating?: number;

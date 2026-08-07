@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { LayoutDashboard, Calendar, Users, ShieldAlert, FileText, PieChart as PieIcon, Plus, Check, Copy, Sparkles, Clock, Share2 } from 'lucide-react';
-import { ChildProfile, Story, ScheduledStory, Caregiver } from '../types';
+import { ChildProfile, Story, ScheduledStory, Caregiver, EmotionalTheme } from '../types';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis } from 'recharts';
+import { CoveredThemesVisualization } from './CoveredThemesVisualization';
 
 interface ParentDashboardProps {
   activeChild: ChildProfile;
   stories: Story[];
   onOpenStoryWizard: () => void;
   onOpenReadView: (story: Story) => void;
+  onOpenStoryWizardWithTheme?: (theme: EmotionalTheme) => void;
 }
 
 export const ParentDashboard: React.FC<ParentDashboardProps> = ({
@@ -15,6 +17,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   stories,
   onOpenStoryWizard,
   onOpenReadView,
+  onOpenStoryWizardWithTheme,
 }) => {
   const [activeTab, setActiveTab] = useState<'analytics' | 'scheduler' | 'coparenting' | 'export'>('analytics');
   const [copiedSyncCode, setCopiedSyncCode] = useState(false);
@@ -122,67 +125,80 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
         })}
       </div>
 
-      {/* TAB 1: Analytics */}
+      {/* TAB 1: Analytics & Theme Progress Ring */}
       {activeTab === 'analytics' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-            <h3 className="font-serif text-base font-bold text-slate-100 flex items-center gap-2">
-              <PieIcon className="w-4 h-4 text-amber-400" />
-              <span>Emotional Themes Addressed Over Time</span>
-            </h3>
+        <div className="space-y-6">
+          <CoveredThemesVisualization
+            activeChild={activeChild}
+            onSelectThemeForStory={(theme) => {
+              if (onOpenStoryWizardWithTheme) {
+                onOpenStoryWizardWithTheme(theme);
+              } else {
+                onOpenStoryWizard();
+              }
+            }}
+          />
 
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', fontSize: '12px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+              <h3 className="font-serif text-base font-bold text-slate-100 flex items-center gap-2">
+                <PieIcon className="w-4 h-4 text-amber-400" />
+                <span>Theme Frequency Distribution</span>
+              </h3>
 
-            <div className="flex flex-wrap gap-2 text-xs font-medium justify-center">
-              {pieData.map((item, idx) => (
-                <div key={item.name} className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                  <span className="text-slate-300">{item.name} ({item.value})</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-            <h3 className="font-serif text-base font-bold text-slate-100 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-400" />
-              <span>Parenting Insights for {activeChild.name}</span>
-            </h3>
-
-            <div className="space-y-3 text-xs">
-              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
-                <span className="font-bold text-amber-300 block">Nighttime Comfort Peak:</span>
-                <p className="text-slate-300 leading-normal">
-                  {activeChild.name} responds best to stories featuring allegorical animal companions (e.g. Pip the Fox) when processing bedtime fears.
-                </p>
+              <div className="h-56 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={75}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', fontSize: '12px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
-                <span className="font-bold text-emerald-300 block">Recommended Next Theme:</span>
-                <p className="text-slate-300 leading-normal">
-                  Consider exploring <strong>Starting School / New Class Routine</strong> before next week to gently reinforce confidence.
-                </p>
+              <div className="flex flex-wrap gap-2 text-xs font-medium justify-center">
+                {pieData.map((item, idx) => (
+                  <div key={item.name} className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                    <span className="text-slate-300">{item.name} ({item.value})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+              <h3 className="font-serif text-base font-bold text-slate-100 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-indigo-400" />
+                <span>Parenting Insights for {activeChild.name}</span>
+              </h3>
+
+              <div className="space-y-3 text-xs">
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                  <span className="font-bold text-amber-300 block">Nighttime Comfort Peak:</span>
+                  <p className="text-slate-300 leading-normal">
+                    {activeChild.name} responds best to stories featuring allegorical animal companions (e.g. Pip the Fox) when processing bedtime fears.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                  <span className="font-bold text-emerald-300 block">Recommended Next Focus:</span>
+                  <p className="text-slate-300 leading-normal">
+                    Try starting a bedtime tale on <strong>Starting School / New Class Routine</strong> to gently reinforce confidence for upcoming school days.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

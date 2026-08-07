@@ -41,6 +41,7 @@ app.post("/api/stories/generate", async (req, res) => {
       favoriteCharacters = [],
       favoriteSettings = [],
       themeLabel,
+      themeLabels = [],
       customThemeText = "",
       tone = "soothing",
       lengthMinutes = 5,
@@ -48,27 +49,32 @@ app.post("/api/stories/generate", async (req, res) => {
       specificDetails = "",
     } = req.body;
 
-    if (!childName || !themeLabel) {
-      return res.status(400).json({ error: "Child name and emotional theme are required." });
+    const effectiveThemeLabel = (Array.isArray(themeLabels) && themeLabels.length > 0)
+      ? themeLabels.join(' + ')
+      : (themeLabel || 'Bedtime Comfort');
+
+    if (!childName) {
+      return res.status(400).json({ error: "Child name is required." });
     }
 
     const ai = getGenAI();
 
     const systemPrompt = `You are DreamWeaver, an expert child psychologist and master children's bedtime story author.
 Your task is to write a deeply comforting, therapeutic bedtime story for a child aged ${childAge}.
-The story MUST directly address the specific emotional theme or challenge: "${themeLabel}" ${customThemeText ? `(Additional context: ${customThemeText})` : ''}.
+The story MUST directly address the specific emotional theme(s) or challenge(s): "${effectiveThemeLabel}" ${customThemeText ? `(Additional context: ${customThemeText})` : ''}.
 Key Guidelines:
 1. Tone: ${tone}. Bedtime appropriate, gentle, calming, and emotionally reassuring.
 2. Starring Character: ${starringMode === 'child' ? `The main character is ${childName}, who experiences the story directly.` : starringMode === 'animal' ? `An allegorical animal companion who goes through what ${childName} is feeling.` : `A wise magical guide helping ${childName}.`}
 3. Child Details: Name: ${childName}, Age: ${childAge}, Traits: ${childTraits.join(', ')}, Favorite Characters: ${favoriteCharacters.join(', ')}, Favorite Settings: ${favoriteSettings.join(', ')}.
 4. Length: ${lengthMinutes} minute read (roughly ${lengthMinutes * 2} concise pages).
-5. Structure: Each page MUST contain engaging, age-appropriate story text, a detailed illustration prompt for visual rendering, and a thoughtful "parentalDiscussionPrompt" for the parent to gently ask/reflect with the child.
-6. Safety & Comfort: Ensure the story never induces panic or shame. Validate the child's real emotions first, then gently introduce a soothing perspective.
-7. End with a soft, peaceful bedtime wind-down where the character falls into deep, safe sleep.`;
+5. Core Bedtime Emotional Themes (Up to 5): ${effectiveThemeLabel}. Seamlessly weave these themes together so the narrative naturally addresses each aspect in a comforting way.
+6. Structure: Each page MUST contain engaging, age-appropriate story text, a detailed illustration prompt for visual rendering, and a thoughtful "parentalDiscussionPrompt" for the parent to gently ask/reflect with the child.
+7. Safety & Comfort: Ensure the story never induces panic or shame. Validate the child's real emotions first, then gently introduce a soothing perspective.
+8. End with a soft, peaceful bedtime wind-down where the character falls into deep, safe sleep.`;
 
     const userPrompt = `Write the personalized bedtime story for ${childName}.
-Theme: ${themeLabel}.
-Details: ${specificDetails || 'Focus on comfort, feeling safe, and bedtime peace.'}`;
+Themes to weave: ${effectiveThemeLabel}.
+Details: ${customThemeText || specificDetails || 'Focus on comfort, feeling safe, and bedtime peace.'}`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",

@@ -37,6 +37,7 @@ export default function App() {
   const [childProfiles, setChildProfiles] = useState<ChildProfile[]>(INITIAL_CHILD_PROFILES);
   const [activeChild, setActiveChild] = useState<ChildProfile>(INITIAL_CHILD_PROFILES[0]);
   const [isAddChildOpen, setIsAddChildOpen] = useState(false);
+  const [selectedChildForEdit, setSelectedChildForEdit] = useState<ChildProfile | null>(null);
 
   // Stories State
   const [stories, setStories] = useState<Story[]>(INITIAL_STORIES);
@@ -70,15 +71,15 @@ export default function App() {
             if (userData.kids && userData.kids.length > 0) {
               const loadedKids: ChildProfile[] = userData.kids.map((k, idx) => ({
                 id: k.id || `child_${idx}`,
-                name: k.name,
+                name: k.name || 'Hero',
                 age: k.age || 5,
                 gender: k.gender || 'girl',
                 traits: ['Curious', 'Kind'],
                 favoriteCharacters: ['Pip the Starlight Fox'],
                 favoriteSettings: ['Pine Forest'],
-                readingLevel: k.age <= 5 ? 'early' : 'intermediate',
+                readingLevel: (k.age || 5) <= 5 ? 'early' : 'intermediate',
                 coveredThemes: [],
-                avatarSeed: k.name.toLowerCase(),
+                avatarSeed: (k.name || 'hero').toLowerCase(),
                 createdAt: new Date().toISOString(),
                 photoUrl: k.photoUrl,
                 aiAnimationAvatarUrl: k.aiAnimationAvatarUrl,
@@ -87,7 +88,7 @@ export default function App() {
                 parentBName: userData.parentBName,
               }));
               setChildProfiles(loadedKids);
-              setActiveChild(loadedKids[0]);
+              if (loadedKids[0]) setActiveChild(loadedKids[0]);
             }
           }
 
@@ -135,15 +136,15 @@ export default function App() {
     if (user.kids && user.kids.length > 0) {
       const newProfiles: ChildProfile[] = user.kids.map((k, idx) => ({
         id: k.id || `child_auth_${idx}_${Date.now()}`,
-        name: k.name,
+        name: k.name || 'Hero',
         age: k.age || 5,
         gender: k.gender || 'girl',
         traits: ['Curious', 'Imaginative', 'Kind'],
         favoriteCharacters: ['Pip the Starlight Fox'],
         favoriteSettings: ['Pine Forest', 'Magical Castle'],
-        readingLevel: k.age <= 5 ? 'early' : k.age <= 8 ? 'intermediate' : 'fluent',
+        readingLevel: (k.age || 5) <= 5 ? 'early' : (k.age || 5) <= 8 ? 'intermediate' : 'fluent',
         coveredThemes: [],
-        avatarSeed: k.name.toLowerCase(),
+        avatarSeed: (k.name || 'hero').toLowerCase(),
         createdAt: new Date().toISOString(),
         photoUrl: k.photoUrl,
         aiAnimationAvatarUrl: k.aiAnimationAvatarUrl,
@@ -153,7 +154,7 @@ export default function App() {
       }));
 
       setChildProfiles(newProfiles);
-      setActiveChild(newProfiles[0]);
+      if (newProfiles[0]) setActiveChild(newProfiles[0]);
     }
   };
 
@@ -323,6 +324,8 @@ export default function App() {
     );
   }
 
+  const safeActiveChild = activeChild || childProfiles[0] || INITIAL_CHILD_PROFILES[0];
+
   return (
     <div className="min-h-screen bg-[#070514] text-indigo-50 font-sans selection:bg-amber-400 selection:text-slate-950 relative overflow-hidden">
       {/* Cosmic background ambient blurs */}
@@ -335,9 +338,16 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         childProfiles={childProfiles}
-        activeChild={activeChild}
+        activeChild={safeActiveChild}
         setActiveChild={setActiveChild}
-        onOpenAddChild={() => setIsAddChildOpen(true)}
+        onOpenAddChild={() => {
+          setSelectedChildForEdit(null);
+          setIsAddChildOpen(true);
+        }}
+        onEditChild={(child) => {
+          setSelectedChildForEdit(child);
+          setIsAddChildOpen(true);
+        }}
         hasVoiceProfile={voiceProfile.status === 'enrolled'}
         userAccount={userAccount}
         onOpenAuth={() => {
@@ -352,7 +362,7 @@ export default function App() {
       <main className="pb-12 animate-fade-in relative z-10">
         {activeTab === 'create' && (
           <StoryGeneratorWizard
-            activeChild={activeChild}
+            activeChild={safeActiveChild}
             allChildren={childProfiles}
             onStoryGenerated={handleStoryGenerated}
             onOpenReadView={(s) => {
@@ -369,7 +379,8 @@ export default function App() {
         {activeTab === 'library' && (
           <StoryLibraryView
             stories={stories}
-            activeChild={activeChild}
+            activeChild={safeActiveChild}
+
             onOpenReadView={(s) => {
               setSelectedStory(s);
               setActiveTab('read');
@@ -563,8 +574,15 @@ export default function App() {
       {/* Modals */}
       <ChildProfileModal
         isOpen={isAddChildOpen}
-        onClose={() => setIsAddChildOpen(false)}
+        onClose={() => {
+          setIsAddChildOpen(false);
+          setSelectedChildForEdit(null);
+        }}
+        existingChild={selectedChildForEdit || safeActiveChild}
         onSave={handleSaveChildProfile}
+        onSelectThemeForStory={(theme) => {
+          setActiveTab('create');
+        }}
       />
 
       <VoiceCloningModal

@@ -9,6 +9,7 @@ interface NavbarProps {
   activeChild: ChildProfile;
   setActiveChild: (child: ChildProfile) => void;
   onOpenAddChild: () => void;
+  onEditChild?: (child: ChildProfile) => void;
   hasVoiceProfile: boolean;
   userAccount: UserAccount | null;
   onOpenAuth: () => void;
@@ -23,13 +24,29 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeChild,
   setActiveChild,
   onOpenAddChild,
+  onEditChild,
   hasVoiceProfile,
   userAccount,
   onOpenAuth,
   onGoToLandingPage,
   onSignOut,
 }) => {
+  const safeChild = activeChild || childProfiles[0] || {
+    id: 'child_default',
+    name: 'Explorer',
+    age: 5,
+    gender: 'girl',
+    traits: ['Curious'],
+    favoriteCharacters: [],
+    favoriteSettings: [],
+    readingLevel: 'early',
+    coveredThemes: [],
+    avatarSeed: 'explorer',
+    createdAt: new Date().toISOString(),
+  };
+
   return (
+
     <header className="sticky top-0 z-40 bg-[#070514]/80 backdrop-blur-xl border-b border-white/10 text-indigo-50 px-4 py-3">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         {/* Brand logo & title */}
@@ -54,7 +71,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Child Selector & Account Dropdown Mobile view */}
           <div className="md:hidden flex items-center gap-2">
             <select
-              value={activeChild.id}
+              value={safeChild.id}
               onChange={(e) => {
                 const found = childProfiles.find(c => c.id === e.target.value);
                 if (found) setActiveChild(found);
@@ -74,6 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <User className="w-4 h-4" />
             </button>
           </div>
+
         </div>
 
         {/* Navigation Tabs */}
@@ -218,19 +236,19 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="hidden md:flex items-center gap-2">
           {/* Active Child Pill */}
           <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl p-1 px-3">
-            {activeChild.aiAnimationAvatarUrl ? (
+            {safeChild.aiAnimationAvatarUrl ? (
               <img
-                src={activeChild.aiAnimationAvatarUrl}
-                alt={activeChild.name}
+                src={safeChild.aiAnimationAvatarUrl}
+                alt={safeChild.name}
                 className="w-6 h-6 rounded-full object-cover border border-amber-400"
               />
             ) : (
               <div className="w-6 h-6 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 flex items-center justify-center font-bold text-xs">
-                {activeChild.name.charAt(0)}
+                {safeChild.name.charAt(0)}
               </div>
             )}
             <select
-              value={activeChild.id}
+              value={safeChild.id}
               onChange={(e) => {
                 const found = childProfiles.find(c => c.id === e.target.value);
                 if (found) setActiveChild(found);
@@ -243,7 +261,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </option>
               ))}
             </select>
+
+            {/* Covered Themes Progress Pill */}
+            {onEditChild && (
+              <button
+                type="button"
+                onClick={() => onEditChild(safeChild)}
+                title="View Covered Emotional Themes"
+                className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/30 flex items-center gap-1 transition-all"
+              >
+                <Sparkles className="w-3 h-3 text-amber-300" />
+                <span>{Math.min(100, Math.round(((safeChild.coveredThemes?.length || 0) / 18) * 100))}% Themes</span>
+              </button>
+            )}
           </div>
+
 
           <button
             onClick={onOpenAddChild}

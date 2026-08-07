@@ -1,13 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { X, Sparkles, User, Heart, BookOpen, Check, Camera, Upload } from 'lucide-react';
-import { ChildProfile, ReadingLevel } from '../types';
+import { X, Sparkles, User, Heart, BookOpen, Check, Camera, Upload, Compass, PieChart } from 'lucide-react';
+import { ChildProfile, ReadingLevel, EmotionalTheme } from '../types';
 import { generateChildlikeAIAvatar } from '../utils/aiAvatar';
+import { CoveredThemesVisualization } from './CoveredThemesVisualization';
 
 interface ChildProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (child: ChildProfile) => void;
   existingChild?: ChildProfile | null;
+  onSelectThemeForStory?: (theme: EmotionalTheme) => void;
 }
 
 export const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
@@ -15,7 +17,9 @@ export const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
   onClose,
   onSave,
   existingChild,
+  onSelectThemeForStory,
 }) => {
+  const [activeTab, setActiveTab] = useState<'info' | 'themes'>('info');
   const [name, setName] = useState(existingChild?.name || '');
   const [age, setAge] = useState(existingChild?.age || 5);
   const [gender, setGender] = useState(existingChild?.gender || 'girl');
@@ -23,6 +27,8 @@ export const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
   const [charactersInput, setCharactersInput] = useState(existingChild?.favoriteCharacters.join(', ') || 'Pip the Starlight Fox, Captain Barnaby');
   const [settingsInput, setSettingsInput] = useState(existingChild?.favoriteSettings.join(', ') || 'Pine Forest, Starlight Treehouse');
   const [readingLevel, setReadingLevel] = useState<ReadingLevel>(existingChild?.readingLevel || 'early');
+
+  const [coveredThemesList, setCoveredThemesList] = useState(existingChild?.coveredThemes || []);
 
   const [photoUrl, setPhotoUrl] = useState(existingChild?.photoUrl || '');
   const [aiAnimationAvatarUrl, setAiAnimationAvatarUrl] = useState(existingChild?.aiAnimationAvatarUrl || '');
@@ -34,6 +40,31 @@ export const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
 
   if (!isOpen) return null;
+
+  const handleToggleTheme = (themeId: string, themeLabel: string) => {
+    setCoveredThemesList((prev) => {
+      const exists = prev.some(
+        (t) =>
+          (t.themeId && t.themeId.toLowerCase() === themeId.toLowerCase()) ||
+          (t.themeLabel && t.themeLabel.toLowerCase() === themeLabel.toLowerCase())
+      );
+      if (exists) {
+        return prev.filter(
+          (t) =>
+            !(t.themeId && t.themeId.toLowerCase() === themeId.toLowerCase()) &&
+            !(t.themeLabel && t.themeLabel.toLowerCase() === themeLabel.toLowerCase())
+        );
+      }
+      return [
+        {
+          themeId,
+          themeLabel,
+          date: new Date().toISOString().split('T')[0],
+        },
+        ...prev,
+      ];
+    });
+  };
 
   const startCamera = async () => {
     try {
@@ -104,7 +135,7 @@ export const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
       favoriteCharacters: charactersInput.split(',').map(s => s.trim()).filter(Boolean),
       favoriteSettings: settingsInput.split(',').map(s => s.trim()).filter(Boolean),
       readingLevel,
-      coveredThemes: existingChild?.coveredThemes || [],
+      coveredThemes: coveredThemesList,
       avatarSeed: name.toLowerCase(),
       createdAt: existingChild?.createdAt || new Date().toISOString(),
       photoUrl,
@@ -116,14 +147,32 @@ export const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
     onClose();
   };
 
+  const currentProfilePreview: ChildProfile = {
+    id: existingChild?.id || 'temp',
+    name: name || 'Child',
+    age: Number(age) || 5,
+    gender,
+    traits: traitsInput.split(',').map(s => s.trim()).filter(Boolean),
+    favoriteCharacters: charactersInput.split(',').map(s => s.trim()).filter(Boolean),
+    favoriteSettings: settingsInput.split(',').map(s => s.trim()).filter(Boolean),
+    readingLevel,
+    coveredThemes: coveredThemesList,
+    avatarSeed: name.toLowerCase() || 'child',
+    createdAt: existingChild?.createdAt || new Date().toISOString(),
+    photoUrl,
+    aiAnimationAvatarUrl,
+    isStarringInStories: isStarring,
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#070514]/85 backdrop-blur-md animate-fade-in text-indigo-50">
-      <div className="bg-[#0e0b29] border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+      <div className={`bg-[#0e0b29] border border-white/10 rounded-3xl w-full ${activeTab === 'themes' ? 'max-w-3xl' : 'max-w-lg'} overflow-hidden shadow-2xl flex flex-col max-h-[90vh] transition-all`}>
+        {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#070514]/60">
           <div className="flex items-center gap-2">
             <User className="w-5 h-5 text-amber-300" />
             <h3 className="font-serif text-lg font-bold text-indigo-100">
-              {existingChild ? `Edit ${existingChild.name}'s Profile` : 'New Child Profile'}
+              {existingChild ? `${existingChild.name}'s Profile` : 'New Child Profile'}
             </h3>
           </div>
           <button 
@@ -134,7 +183,73 @@ export const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs font-medium overflow-y-auto">
+        {/* Tab Navigation bar */}
+        <div className="flex items-center border-b border-white/10 bg-white/5 px-6 text-xs font-semibold gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('info')}
+            className={`flex items-center gap-2 py-3 px-3 border-b-2 transition-colors ${
+              activeTab === 'info'
+                ? 'border-amber-400 text-amber-300 font-bold'
+                : 'border-transparent text-indigo-300 hover:text-white'
+            }`}
+          >
+            <User className="w-4 h-4" />
+            <span>Profile Details & Avatar</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('themes')}
+            className={`flex items-center gap-2 py-3 px-3 border-b-2 transition-colors ${
+              activeTab === 'themes'
+                ? 'border-amber-400 text-amber-300 font-bold'
+                : 'border-transparent text-indigo-300 hover:text-white'
+            }`}
+          >
+            <PieChart className="w-4 h-4 text-amber-300" />
+            <span>Covered Themes & Progress Ring</span>
+            {coveredThemesList.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-bold">
+                {coveredThemesList.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {activeTab === 'themes' ? (
+          <div className="p-6 space-y-4 overflow-y-auto">
+            <CoveredThemesVisualization
+              activeChild={currentProfilePreview}
+              onSelectThemeForStory={(theme) => {
+                if (onSelectThemeForStory) {
+                  onSelectThemeForStory(theme);
+                  onClose();
+                }
+              }}
+              onToggleCoveredTheme={handleToggleTheme}
+            />
+
+            <div className="pt-4 border-t border-white/10 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl bg-white/10 text-indigo-200 hover:bg-white/20 text-xs font-semibold"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold hover:from-amber-300 hover:to-amber-400 shadow-md text-xs flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Save Covered Themes</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs font-medium overflow-y-auto">
           {/* AI Child Animation Photo Box */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -298,6 +413,7 @@ export const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );
